@@ -21,7 +21,7 @@ enum MemoryMap
 	FONT_END = 0x9F,
 };
 
-enum ShifMode
+enum ShiftMode
 {
 	COSMAC_VIP,
 	SUPER_CHIP,
@@ -89,7 +89,6 @@ void update();
 void clearScreen();
 void close();
 
-uint8_t draw(uint8_t x, uint8_t y, uint8_t N, uint16_t index);
 
 void LoadFont() {
 
@@ -204,22 +203,37 @@ void OPC0x8XY0(uint16_t OPC) {
 	registers[tempXIndex] = registers[tempYIndex];
 }
 
-void OPC0x8XY1(uint16_t OPC) {
+void OPC0x8XY1(uint16_t OPC, ShiftMode shiftmode) {
 	uint16_t tempXIndex = (OPC & 0x0F00) >> 8;
 	uint16_t tempYIndex = (OPC & 0x00F0) >> 4;
+
 	registers[tempXIndex] = registers[tempXIndex] | registers[tempYIndex];
+	if (shiftmode == COSMAC_VIP)
+	{
+		registers[VF] = 0;
+	}
 }
 
-void OPC0x8XY2(uint16_t OPC) {
+void OPC0x8XY2(uint16_t OPC, ShiftMode shiftmode) {
 	uint16_t tempXIndex = (OPC & 0x0F00) >> 8;
 	uint16_t tempYIndex = (OPC & 0x00F0) >> 4;
+
 	registers[tempXIndex] = registers[tempXIndex] & registers[tempYIndex];
+	if (shiftmode == COSMAC_VIP)
+	{
+		registers[VF] = 0;
+	}
 }
 
-void OPC0x8XY3(uint16_t OPC) {
+void OPC0x8XY3(uint16_t OPC, ShiftMode shiftmode) {
 	uint16_t tempXIndex = (OPC & 0x0F00) >> 8;
 	uint16_t tempYIndex = (OPC & 0x00F0) >> 4;
+
 	registers[tempXIndex] = registers[tempXIndex] ^ registers[tempYIndex];
+	if (shiftmode == COSMAC_VIP)
+	{
+		registers[VF] = 0;
+	}
 }
 
 void OPC0x8XY4(uint16_t OPC) {
@@ -273,7 +287,7 @@ void OPC0x8XY7(uint16_t OPC) {
 
 }
 
-void OPC0x8XY6(uint16_t OPC, ShifMode shiftmode ) {
+void OPC0x8XY6(uint16_t OPC, ShiftMode shiftmode ) {
 
 	uint16_t XIndex = (OPC & 0x0F00) >> 8 ;
 	uint16_t Yindex = (OPC & 0x00F0) >> 4 ;
@@ -299,7 +313,7 @@ void OPC0x8XY6(uint16_t OPC, ShifMode shiftmode ) {
 	
 }
 
-void OPC0x8XYE(uint16_t OPC, ShifMode shiftmode) {
+void OPC0x8XYE(uint16_t OPC, ShiftMode shiftmode) {
 
 	uint16_t XIndex = (OPC & 0x0F00) >> 8;
 	uint16_t Yindex = (OPC & 0x00F0) >> 4;
@@ -331,7 +345,7 @@ void OPC0xA(uint16_t OPC) {
 	indexRegister = OPC & 0x0FFF;
 }
 
-void OPC0xB(uint16_t OPC, ShifMode shiftmode) {
+void OPC0xB(uint16_t OPC, ShiftMode shiftmode) {
 	
 	uint16_t NNN = OPC & 0x0FFF;
 
@@ -354,14 +368,48 @@ void OPC0xC(uint16_t OPC) {
 
 void OPC0xD(uint16_t OPC) {
 	//coordinate
-	uint8_t x = registers[((OPC & 0x0F00) >> 8)];
-	uint8_t y = registers[((OPC & 0x00F0) >> 4)];
-	uint16_t x16 = x;
-	uint16_t y16 = y;
-	uint8_t n = OPC & 0x000F; //spight height
+	uint8_t x = registers[((OPC & 0x0F00) >> 8)] & 63;
+	uint8_t y = registers[((OPC & 0x00F0) >> 4)] & 31;
+
+	uint8_t n = OPC & 0x000F; //sprite height
 	std::cout << "drawing at: " << std::dec << static_cast<int>(x) << " & " << static_cast<int>(y) << " for " << static_cast<int>(n) << " rows!\n";
-	int VFvalue = draw(x, y, n, indexRegister);
-	registers[VF] = VFvalue;
+	registers[VF] = 0;
+
+	for (int row = 0; row < n; row++)
+	{
+		uint8_t spriteData = memory[indexRegister + row];
+
+		if (y + row > 31)
+		{
+			break;
+		}
+
+		for (int column = 0; column < 8; column++)
+		{
+			if (x + column > 63)
+			{
+				break;
+			}
+
+			bool isPixelSpriteOn = (spriteData & (0x80 >> column)) != 0;
+
+			if (!isPixelSpriteOn)
+			{
+				continue;
+			}
+
+			int coordinates = (y + row) * 64 + (x + column);
+
+
+			if (display[coordinates] && isPixelSpriteOn)
+			{
+				registers[VF] = 1;
+
+			}
+			display[coordinates] ^= 1;
+		}
+	}
+
 	
 }
 
@@ -426,21 +474,30 @@ void OPC0xFX33(uint16_t OPC) {
 	memory[indexRegister] = value % 10;
 }
 
-void OPC0xFX55(uint16_t OPC) {
+void OPC0xFX55(uint16_t OPC, ShiftMode shiftmode) {
 	uint16_t XIndex = (OPC & 0x0F00) >> 8;
 
 	for (int i = 0; i <= XIndex; i++)
 	{
 		memory[indexRegister + i] = registers[i];
 	}
+
+	if (shiftmode == COSMAC_VIP)
+	{
+		indexRegister += XIndex + 1;
+	}
 }
 
-void OPC0xFX65(uint16_t OPC) {
+void OPC0xFX65(uint16_t OPC, ShiftMode shiftmode) {
 	uint16_t XIndex = (OPC & 0x0F00) >> 8;
 
 	for (int i = 0; i <= XIndex; i++)
 	{
 		 registers[i] = memory[indexRegister + i];
+	}
+	if (shiftmode == COSMAC_VIP)
+	{
+		indexRegister += XIndex + 1;
 	}
 }
 
@@ -449,9 +506,16 @@ void decode(uint16_t OPC) {
 	if (OPC == 0x00E0)
 	{
 		//clear display
+		clearScreen();
+		for (int row = 0; row < 32; row++)
+		{
+			for (int column = 0; column < 64; column++)
+			{
+				display[column + 64 * (row)] = 0;
+			}
+		}
 		std::cout << "display cleared\n";
 	}
-
 
 	switch (((OPC & 0xF000) >> 12))
 	{
@@ -499,13 +563,13 @@ void decode(uint16_t OPC) {
 				OPC0x8XY0(OPC);
 				break;
 			case 0x0001:
-				OPC0x8XY1(OPC);
+				OPC0x8XY1(OPC, COSMAC_VIP);
 				break;
 			case 0x0002:
-				OPC0x8XY2(OPC);
+				OPC0x8XY2(OPC, COSMAC_VIP);
 				break;
 			case 0x0003:
-				OPC0x8XY3(OPC);
+				OPC0x8XY3(OPC, COSMAC_VIP);
 				break;
 			case 0x0004:
 				OPC0x8XY4(OPC);
@@ -567,10 +631,10 @@ void decode(uint16_t OPC) {
 				OPC0xFX33(OPC);
 				break;
 			case 0x0055:
-				OPC0xFX55(OPC);
+				OPC0xFX55(OPC, COSMAC_VIP);
 				break;
 			case 0x0065:
-				OPC0xFX65(OPC);
+				OPC0xFX65(OPC, COSMAC_VIP);
 				break;
 			default:
 				break;
@@ -584,8 +648,8 @@ void decode(uint16_t OPC) {
 
 int main(int argc, char* args[]) {
 
-	srand(time(NULL));
-	const std::string ROMpath { "C:/Users/sorgi/Desktop/CH8ROMS/5-quirks.ch8" };
+	srand(static_cast<unsigned int>(time(NULL)));
+	const std::string ROMpath { "C:/Users/sorgi/Desktop/CH8ROMS/Space Invaders.ch8" };
 	LoadFont();
 
 	if (!OpenROM(ROMpath)) {
