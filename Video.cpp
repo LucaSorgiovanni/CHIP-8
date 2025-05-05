@@ -200,14 +200,10 @@ void updateScreen() {
 		{
 			if (display[column + row * 64] == 1) {
 				drawScaledPixel(column * 10, row * 10, true);
-				std::cout << "0";
 			}
 			else {
 				drawScaledPixel(column * 10, row * 10, false);
-				std::cout << "1";
 			}
 		}
-		std::cout << "\n";
 	}
-	std::cout << "\n\n\n\n";
 }

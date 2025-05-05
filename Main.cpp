@@ -348,13 +348,14 @@ void OPC0xA(uint16_t OPC) {
 void OPC0xB(uint16_t OPC, ShiftMode shiftmode) {
 	
 	uint16_t NNN = OPC & 0x0FFF;
+	uint16_t XIndex = (OPC & 0x0F00) >> 8;
 
 	if (shiftmode == COSMAC_VIP)
 	{
 		programCounter = NNN + registers[0];
 	}
 	else {
-		uint16_t XIndex =  OPC & 0x0F00 >> 4 ;
+		uint16_t XIndex =  OPC & 0x0F00 >> 8 ;
 		programCounter = NNN + registers[XIndex];
 	}
 }
@@ -410,7 +411,7 @@ void OPC0xD(uint16_t OPC) {
 		}
 	}
 
-	
+	update();
 }
 
 void OPC0xEX9E(uint16_t OPC) {
@@ -458,6 +459,11 @@ void OPC0xFX0A(uint16_t OPC) {
 	else {
 		registers[XIndex] = keyPressed;
 	}
+}
+
+void OPC0XFX29(uint16_t OPC) {
+	uint16_t XIndex = (OPC & 0x0F00) >> 8;
+	indexRegister = FONT_START + registers[XIndex] * 5;
 }
 
 void OPC0xFX33(uint16_t OPC) {
@@ -593,6 +599,9 @@ void decode(uint16_t OPC) {
 		case 0xA: //index register set
 			OPC0xA(OPC);
 			break;
+		case 0xB:
+			OPC0xB(OPC, COSMAC_VIP);
+			break;
 		case 0xD: //display
 			OPC0xD(OPC);
 			break;
@@ -627,6 +636,9 @@ void decode(uint16_t OPC) {
 			case 0x000A:
 				OPC0xFX0A(OPC);
 				break;
+			case 0x0029:
+				OPC0XFX29(OPC);
+				break;
 			case 0x0033:
 				OPC0xFX33(OPC);
 				break;
@@ -649,7 +661,7 @@ void decode(uint16_t OPC) {
 int main(int argc, char* args[]) {
 
 	srand(static_cast<unsigned int>(time(NULL)));
-	const std::string ROMpath { "C:/Users/sorgi/Desktop/CH8ROMS/Space Invaders.ch8" };
+	const std::string ROMpath { "C:/Users/sorgi/Desktop/CH8ROMS/Pong (1 player).ch8" };
 	LoadFont();
 
 	if (!OpenROM(ROMpath)) {
@@ -721,11 +733,15 @@ int main(int argc, char* args[]) {
 			{
 				fetch();
 				decode(opcode);
+				if (((opcode & 0xF000) >> 12) == 0xD)
+				{
+					break;
+				}
 			}
 
 			isKeyReleased = false;
 
-			update();
+			
 
 			uint64_t loopTimeNS{ SDL_GetTicksNS() - loopStartNS };
 
