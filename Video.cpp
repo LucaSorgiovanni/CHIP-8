@@ -41,7 +41,7 @@ bool init() {
 
 
 void update() {
-	updateScreen();
+	//updateScreen();
 	SDL_UpdateWindowSurface(gWindow);
 }
 

@@ -88,7 +88,7 @@ bool init();
 void update();
 void clearScreen();
 void close();
-
+void drawScaledPixel(int column, int row, bool pixelON);
 
 void LoadFont() {
 
@@ -373,7 +373,6 @@ void OPC0xD(uint16_t OPC) {
 	uint8_t y = registers[((OPC & 0x00F0) >> 4)] & 31;
 
 	uint8_t n = OPC & 0x000F; //sprite height
-	std::cout << "drawing at: " << std::dec << static_cast<int>(x) << " & " << static_cast<int>(y) << " for " << static_cast<int>(n) << " rows!\n";
 	registers[VF] = 0;
 
 	for (int row = 0; row < n; row++)
@@ -405,13 +404,17 @@ void OPC0xD(uint16_t OPC) {
 			if (display[coordinates] && isPixelSpriteOn)
 			{
 				registers[VF] = 1;
-
+				drawScaledPixel((x + column) * 10,( y + row)*10, false);
 			}
+			else {
+				drawScaledPixel((x + column) * 10, (y + row) * 10, true);
+			}
+			
 			display[coordinates] ^= 1;
 		}
 	}
 
-	update();
+
 }
 
 void OPC0xEX9E(uint16_t OPC) {
@@ -661,7 +664,7 @@ void decode(uint16_t OPC) {
 int main(int argc, char* args[]) {
 
 	srand(static_cast<unsigned int>(time(NULL)));
-	const std::string ROMpath { "C:/Users/sorgi/Desktop/CH8ROMS/Pong (1 player).ch8" };
+	const std::string ROMpath { "C:/Users/sorgi/Desktop/CH8ROMS/Space Invaders.ch8" };
 	LoadFont();
 
 	if (!OpenROM(ROMpath)) {
@@ -733,14 +736,15 @@ int main(int argc, char* args[]) {
 			{
 				fetch();
 				decode(opcode);
-				if (((opcode & 0xF000) >> 12) == 0xD)
+				/*if (((opcode & 0xF000) >> 12) == 0xD)
 				{
 					break;
-				}
+				}*/
 			}
 
 			isKeyReleased = false;
 
+			update();
 			
 
 			uint64_t loopTimeNS{ SDL_GetTicksNS() - loopStartNS };
