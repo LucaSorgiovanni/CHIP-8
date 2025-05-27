@@ -466,7 +466,7 @@ void OPC0xFX0A(uint16_t OPC) {
 
 void OPC0XFX29(uint16_t OPC) {
 	uint16_t XIndex = (OPC & 0x0F00) >> 8;
-	indexRegister = FONT_START + registers[XIndex] * 5;
+	indexRegister = (FONT_START + (registers[XIndex] % 16) * 5) ;
 }
 
 void OPC0xFX33(uint16_t OPC) {
@@ -664,7 +664,7 @@ void decode(uint16_t OPC) {
 int main(int argc, char* args[]) {
 
 	srand(static_cast<unsigned int>(time(NULL)));
-	const std::string ROMpath { "C:/Users/sorgi/Desktop/CH8ROMS/Space Invaders.ch8" };
+	const std::string ROMpath { "C:/Users/sorgi/Desktop/CH8ROMS/oob_test_7.ch8" };
 	LoadFont();
 
 	if (!OpenROM(ROMpath)) {
